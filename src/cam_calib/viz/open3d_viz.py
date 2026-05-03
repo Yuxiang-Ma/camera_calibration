@@ -7,7 +7,7 @@ try:
     import open3d as o3d  # type: ignore
 except ImportError as e:  # pragma: no cover
     raise ImportError(
-        "open3d not installed. Install with: pip install camera-calibration[viz]"
+        "open3d not installed. Install with: pip install cam-calib[viz]"
     ) from e
 
 

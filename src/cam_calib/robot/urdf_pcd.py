@@ -15,7 +15,7 @@ try:
 except ImportError as e:  # pragma: no cover
     raise ImportError(
         "yourdfpy/trimesh not installed. "
-        "Install with: pip install camera-calibration[robot-viz]"
+        "Install with: pip install cam-calib[robot-viz]"
     ) from e
 
 

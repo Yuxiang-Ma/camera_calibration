@@ -60,7 +60,7 @@ class AutoExposureResult:
 def auto_tune_charuco_exposure(
     camera: ExposureControllableCamera,
     *,
-    target_mean: float = 120.0,
+    target_mean: float = 80.0,
     tolerance: float = 10.0,
     max_iters: int = 8,
     settle_time: float = 0.25,
@@ -74,8 +74,11 @@ def auto_tune_charuco_exposure(
     """Adjust ``camera``'s exposure until the ChArUco board ROI is at target.
 
     Args:
-        target_mean: desired mean grayscale luminance in [0, 255]. ~120 keeps
-            the board mid-gray with good headroom on both ends.
+        target_mean: desired mean grayscale luminance in [0, 255]. Default 80
+            (slightly darker than mid-gray) — empirically better for ChArUco
+            corner accuracy: keeps the white squares well below saturation,
+            which preserves sub-pixel corner localization. Bump higher in dim
+            rooms; drop further in very bright lighting.
         tolerance: stop when ``|measured - target| <= tolerance``.
         max_iters: cap on adjustment rounds.
         settle_time: seconds to wait between exposure changes (RealSense

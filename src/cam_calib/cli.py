@@ -176,9 +176,10 @@ def main(argv=None) -> int:
     p_cal.add_argument(
         "--exposure-target",
         type=float,
-        default=120.0,
+        default=80.0,
         help="target mean grayscale luminance [0–255] in the board ROI "
-             "(default 120)",
+             "(default 80 — slightly darker than mid-gray; empirically "
+             "better for ChArUco corner accuracy)",
     )
     p_cal.add_argument(
         "--exposure-max-iters",

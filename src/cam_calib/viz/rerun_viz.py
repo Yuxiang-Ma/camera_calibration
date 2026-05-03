@@ -14,7 +14,7 @@ try:
     import rerun as rr  # type: ignore
 except ImportError as e:  # pragma: no cover
     raise ImportError(
-        "rerun-sdk not installed. Install with: pip install camera-calibration[viz]"
+        "rerun-sdk not installed. Install with: pip install cam-calib[viz]"
     ) from e
 
 from cam_calib.core.geometry import invert_se3

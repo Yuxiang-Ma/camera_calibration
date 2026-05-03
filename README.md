@@ -101,11 +101,14 @@ own exposure value, but the **detected board** has the same brightness
 across all cameras — the right invariant for ChArUco corner accuracy.
 
 ```bash
-# Default: tune each camera to mean board luminance ~120
+# Default: tune each camera to mean board luminance ~80 (slightly darker
+# than mid-gray — keeps white squares below saturation, which preserves
+# sub-pixel corner accuracy).
 python -m cam_calib calibrate
 
-# Custom target / iteration cap
-python -m cam_calib calibrate --exposure-target 130 --exposure-max-iters 12
+# Custom target — go lower (e.g. 60) under bright lighting, higher (e.g. 110)
+# in dim rooms.
+python -m cam_calib calibrate --exposure-target 60 --exposure-max-iters 12
 
 # Skip tuning (use stock RealSense auto-exposure)
 python -m cam_calib calibrate --no-auto-tune-exposure
@@ -139,10 +142,17 @@ for that frame.
 ## Robot-side
 
 The package itself never imports a robot SDK. If you want to overlay robot
-meshes on the fused point cloud, supply a list of pre-computed `(N, 3)` point
-clouds in world frame to `workflows.visualize_fused.run`. A convenience helper
-`robot.urdf_pcd.urdf_to_pcd(urdf_path, joint_angles, T_base_world)` is provided
-under the `[robot-viz]` extra; it uses `yourdfpy` + `trimesh` only.
+meshes on the fused point cloud, supply a list of pre-computed `(N, 3)`
+point clouds in world frame as the `extra_pointclouds` argument to
+`cam_calib.workflows.visualize_fused.fuse_and_show`. A convenience helper
+`cam_calib.robot.urdf_pcd.urdf_to_pcd(urdf_path, joint_angles, T_base_world)`
+is provided under the `[robot-viz]` extra; it uses `yourdfpy` + `trimesh`
+only — no robot-control libraries.
+
+**URDFs are not bundled** with the package — they tend to be large
+(tac_foundation's franka_fer + franka_fr3 assets are ~49 MB combined) and
+are project-specific. Point `urdf_to_pcd` at whatever URDF tree your project
+already has, e.g. `~/tac_foundation/third_party/tidybot2/models/franka_fer/urdf/robot.urdf`.
 
 ## YAML schemas
 

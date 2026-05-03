@@ -101,7 +101,7 @@ def aggregate_world_pointcloud(
         except ImportError as e:
             raise ImportError(
                 "voxel_size requested but open3d not installed. "
-                "Install with: pip install camera-calibration[viz]"
+                "Install with: pip install cam-calib[viz]"
             ) from e
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(positions)
