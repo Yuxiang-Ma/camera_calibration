@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+.idea/
+.vscode/
+*.swp
+
+# Calibration output (not committed, per user choice)
+data/
+viz_out/

@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cam-calib"
+version = "0.1.0"
+description = "Camera extrinsic calibration via ChArUco/ArUco, with optional RealSense capture and fused-pointcloud visualization. Robot-SDK-free."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Yuxiang Ma" }]
+license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.20",
+    "opencv-contrib-python>=4.7",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+realsense = ["pyrealsense2>=2.50"]
+viz = [
+    "open3d>=0.17",
+    "rerun-sdk>=0.14",
+]
+robot-viz = [
+    "yourdfpy>=0.0.50",
+    "trimesh>=3.20",
+]
+all = [
+    "pyrealsense2>=2.50",
+    "open3d>=0.17",
+    "rerun-sdk>=0.14",
+    "yourdfpy>=0.0.50",
+    "trimesh>=3.20",
+]
+test = ["pytest>=7", "pytest-cov"]
+
+[project.scripts]
+cam-calib = "cam_calib.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+cam_calib = ["assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
