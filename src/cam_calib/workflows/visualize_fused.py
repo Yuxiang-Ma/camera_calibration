@@ -1,15 +1,19 @@
 """End-to-end fused-scene visualization.
 
-Pulls one frame per camera, fuses to a world-frame PCD, optionally overlays
-caller-supplied robot meshes, and shows the result in Rerun (default) with
+Takes pre-captured ``CameraFrame``s (each with ``.depth`` set), looks up
+saved extrinsics, fuses RGB-D into a world PCD, optionally overlays
+caller-supplied geometries, and shows the result in Rerun (default) with
 Open3D fallback.
+
+Depth source is intentionally outside this package's scope — populate
+``frame.depth`` yourself (hardware depth, FoundationStereo, anything else).
 """
 from pathlib import Path
-from typing import Iterable, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 
-from cam_calib.adapters.base import CameraSource
+from cam_calib.adapters.base import CameraFrame
 from cam_calib.core.extrinsics_io import load_cam_extrinsics
 from cam_calib.viz.pointcloud import aggregate_world_pointcloud
 
@@ -18,51 +22,47 @@ PathLike = Union[str, Path]
 
 
 def fuse_and_show(
-    cameras: Iterable[CameraSource],
+    frames: List[CameraFrame],
     extrinsics_dir: PathLike,
     *,
-    depths_per_camera: dict,
     extra_pointclouds: Iterable[Tuple[str, np.ndarray]] = (),
     use_rerun: bool = True,
     save_rrd_dir: Optional[PathLike] = None,
     boundaries: Optional[dict] = None,
     voxel_size: Optional[float] = None,
 ) -> None:
-    """Fuse RGB-D from ``cameras`` into a world PCD and display it.
+    """Fuse RGB-D from ``frames`` into a world PCD and display it.
 
-    ``depths_per_camera`` is a ``{serial: (H, W) depth in meters}`` dict
-    supplied by the caller — depth source (hardware, FoundationStereo, etc.)
-    is intentionally outside this package's scope.
+    Each frame must have:
+      - ``image`` (BGR uint8)
+      - ``K`` (3x3 intrinsics)
+      - ``depth`` (float32 meters, aligned to color)
+      - a saved ``<serial>.yaml`` in ``extrinsics_dir``
     """
-    cams = list(cameras)
-    if not cams:
-        raise ValueError("no cameras provided")
+    if not frames:
+        raise ValueError("no frames provided")
 
-    serials = []
-    colors = []
-    Ks = []
-    extr = []
-    images_bgr = []
-    for cam in cams:
-        frame = cam.get_frame()
-        T_cam_world = load_cam_extrinsics(frame.serial, extrinsics_dir)
+    serials, colors_rgb, depths, Ks, extr = [], [], [], [], []
+    for f in frames:
+        T_cam_world = load_cam_extrinsics(f.serial, extrinsics_dir)
         if T_cam_world is None:
             raise FileNotFoundError(
-                f"no extrinsics yaml for {frame.serial} in {extrinsics_dir}"
+                f"no extrinsics yaml for {f.serial} in {extrinsics_dir}; "
+                f"run `cam-calib calibrate` first"
             )
-        if frame.serial not in depths_per_camera:
-            raise KeyError(f"depths_per_camera missing entry for {frame.serial}")
-        serials.append(frame.serial)
-        # OpenCV is BGR; aggregate_world_pointcloud is colorspace-agnostic but
-        # caller will likely want RGB in viz — flip channel order.
-        rgb = frame.image[..., ::-1]
-        colors.append(rgb)
-        images_bgr.append(frame.image)
-        Ks.append(frame.K)
+        if f.depth is None:
+            raise ValueError(
+                f"frame for {f.serial} has no depth — adapters need "
+                f"enable_depth=True"
+            )
+        serials.append(f.serial)
+        colors_rgb.append(f.image[..., ::-1])  # BGR → RGB for viz
+        depths.append(f.depth)
+        Ks.append(f.K)
         extr.append(T_cam_world)
 
-    colors_arr = np.stack(colors)
-    depths_arr = np.stack([depths_per_camera[s] for s in serials])
+    colors_arr = np.stack(colors_rgb)
+    depths_arr = np.stack(depths)
     Ks_arr = np.stack(Ks)
     extr_arr = np.stack(extr)
 
@@ -74,11 +74,12 @@ def fuse_and_show(
         boundaries=boundaries,
         voxel_size=voxel_size,
     )
+    print(f"fused {len(serials)} cameras → {positions.shape[0]} points")
 
     if use_rerun:
         try:
             from cam_calib.viz.rerun_viz import show_world_pointcloud as rr_show
-            cameras_zip = list(zip(extr_arr, Ks_arr, [c[..., ::-1] for c in colors]))
+            cameras_zip = list(zip(extr_arr, Ks_arr, colors_rgb))
             rr_show(
                 positions,
                 rgb,
