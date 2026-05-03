@@ -10,28 +10,36 @@ readme = "README.md"
 requires-python = ">=3.9"
 authors = [{ name = "Yuxiang Ma" }]
 license = { text = "MIT" }
+# Intentionally minimal. We deliberately do NOT depend on opencv here:
+#   - opencv-python and opencv-contrib-python are mutually exclusive
+#     distributions that both ship the `cv2` namespace; declaring one as a
+#     dependency causes pip to uninstall the other in shared envs (this bit
+#     several tac_foundation packages).
+#   - numpy is upper-pinned because the surrounding tac_foundation env
+#     (gs-sdk, normalflow, openpi-client, cmeel-boost) pins numpy<2.
+# To get OpenCV with ArUco: install `cam-calib[opencv]` OR ensure your env
+# already has `opencv-contrib-python` (or `opencv-python` built with contrib).
 dependencies = [
-    "numpy>=1.20",
-    "opencv-contrib-python>=4.7",
+    "numpy>=1.20,<2",
     "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
+opencv = ["opencv-contrib-python>=4.7,<5"]
 realsense = ["pyrealsense2>=2.50"]
+# Bound versions so installing this extra never forces a numpy>=2 upgrade.
+# open3d 0.16 is what tac_foundation ships with; 0.17+ work too, but we
+# don't force an upgrade.
 viz = [
-    "open3d>=0.17",
+    "open3d>=0.16,<0.18",
     "rerun-sdk>=0.14",
 ]
+# trimesh>=4.5 and recent yourdfpy/manifold3d builds require numpy>=2; cap to
+# avoid the upgrade. If you already have numpy>=2, pip will still find a
+# compatible version inside these ranges.
 robot-viz = [
-    "yourdfpy>=0.0.50",
-    "trimesh>=3.20",
-]
-all = [
-    "pyrealsense2>=2.50",
-    "open3d>=0.17",
-    "rerun-sdk>=0.14",
-    "yourdfpy>=0.0.50",
-    "trimesh>=3.20",
+    "yourdfpy>=0.0.50,<0.0.56",
+    "trimesh>=3.20,<4.5",
 ]
 test = ["pytest>=7", "pytest-cov"]
 

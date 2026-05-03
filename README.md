@@ -24,16 +24,34 @@ imports adapters or viz.
 
 ## Install
 
+The package itself only depends on `numpy<2` and `pyyaml` — extras are opt-in
+because they tend to fight other packages in shared envs.
+
 ```bash
-# Core only (no hardware, no viz)
-pip install -e ~/src/cam_calib
+# Core only (assumes you already have OpenCV with the aruco contrib module)
+pip install -e ~/src/camera_calibration
 
-# With RealSense capture
-pip install -e ~/src/cam_calib[realsense]
+# Add OpenCV (only if you don't already have opencv-contrib-python)
+pip install -e ~/src/camera_calibration[opencv]
 
-# Full convenience: RealSense + viz + URDF mesh sampling
-pip install -e ~/src/cam_calib[all]
+# RealSense capture
+pip install -e ~/src/camera_calibration[realsense]
+
+# Visualization (Open3D + Rerun)
+pip install -e ~/src/camera_calibration[viz]
+
+# URDF mesh sampling (yourdfpy + trimesh)
+pip install -e ~/src/camera_calibration[robot-viz]
 ```
+
+> **Why no `[all]` extra?** Combining viz + robot-viz can pull `numpy>=2` or
+> upgrade Open3D in ways that break neighboring packages (`gs-sdk`,
+> `normalflow`, `openpi-client`, etc.). Install only the extras you need.
+
+> **OpenCV note.** `opencv-python` and `opencv-contrib-python` are mutually
+> exclusive distributions (both ship the `cv2` namespace). We deliberately do
+> not list either as a hard dependency. If your env already has one of them
+> with the `cv2.aruco` module, you're fine — `cam_calib` checks at import.
 
 ## Quick start
 
