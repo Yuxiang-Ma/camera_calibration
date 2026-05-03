@@ -17,3 +17,5 @@ venv/
 # Calibration output (not committed, per user choice)
 data/
 viz_out/
+cam_extrinsics/
+robot_extrinsics/
