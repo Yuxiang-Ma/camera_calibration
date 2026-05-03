@@ -88,6 +88,29 @@ python -m cam_calib calibrate --cameras 138422070384,134322071848
 python -m cam_calib visualize
 ```
 
+### FoundationStereo for visualize depth
+
+`visualize` will try the [FoundationStereo](https://github.com/williamshen-nz/FoundationStereo)
+inference server at `http://localhost:1234` by default. If it's reachable,
+cameras are opened with IR stereo streams enabled and FS depth replaces
+hardware depth (better far-field accuracy). If it isn't reachable, hardware
+depth is used and the IR streams aren't enabled (saves USB bandwidth).
+
+```bash
+# Default: try http://localhost:1234, fall back to hardware depth
+python -m cam_calib visualize
+
+# Explicit URL
+python -m cam_calib visualize --foundation-stereo-url http://my-fs-host:1234
+
+# Skip FS entirely (don't even probe)
+python -m cam_calib visualize --no-foundation-stereo
+```
+
+When the server is reachable but a per-frame inference fails (timeout, server
+error, etc.), `cam_calib` warns and falls back to that camera's hardware depth
+for that frame.
+
 ## Robot-side
 
 The package itself never imports a robot SDK. If you want to overlay robot

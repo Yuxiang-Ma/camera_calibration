@@ -10,6 +10,7 @@ import argparse
 import sys
 from importlib import resources
 from pathlib import Path
+from typing import Optional
 
 
 def _resolve_serials(args_cameras):
@@ -51,6 +52,10 @@ def _cmd_calibrate(args: argparse.Namespace) -> int:
 
 def _cmd_visualize(args: argparse.Namespace) -> int:
     from cam_calib.adapters.realsense import SimpleRealSense
+    from cam_calib.depth.foundation_stereo import (
+        DEFAULT_FS_URL,
+        FoundationStereoClient,
+    )
     from cam_calib.workflows.visualize_fused import fuse_and_show
 
     serials = _resolve_serials(args.cameras)
@@ -66,6 +71,22 @@ def _cmd_visualize(args: argparse.Namespace) -> int:
 
     save_rrd_dir = Path(args.save_rrd_dir).expanduser() if args.save_rrd_dir else None
 
+    # Decide whether to enable IR streams based on FoundationStereo availability.
+    # If FS is unreachable we skip IR (saves USB bandwidth).
+    fs_client: Optional[FoundationStereoClient] = None
+    enable_ir_stereo = False
+    if not args.no_foundation_stereo:
+        fs_client = FoundationStereoClient(url=args.foundation_stereo_url)
+        if fs_client.is_reachable():
+            print(f"FoundationStereo: using {fs_client.url}")
+            enable_ir_stereo = True
+        else:
+            print(
+                f"FoundationStereo unreachable at {fs_client.url}; "
+                f"falling back to hardware depth"
+            )
+            fs_client = None
+
     cams = []
     try:
         for s in serials:
@@ -73,7 +94,8 @@ def _cmd_visualize(args: argparse.Namespace) -> int:
                 s,
                 resolution=args.resolution,
                 fps=args.fps,
-                enable_depth=True,
+                enable_depth=True,                      # always have a fallback
+                enable_infrared_stereo=enable_ir_stereo,
             )
             cam.start()
             cams.append(cam)
@@ -81,6 +103,7 @@ def _cmd_visualize(args: argparse.Namespace) -> int:
         fuse_and_show(
             frames,
             extrinsics_dir,
+            fs_client=fs_client,
             use_rerun=not args.no_rerun,
             save_rrd_dir=save_rrd_dir,
             voxel_size=args.voxel_size,
@@ -148,6 +171,17 @@ def main(argv=None) -> int:
                        help="use Open3D viewer instead of Rerun")
     p_viz.add_argument("--save-rrd-dir", default=None,
                        help="if set with Rerun, save .rrd recording here")
+    p_viz.add_argument(
+        "--foundation-stereo-url",
+        default="http://localhost:1234",
+        help="FoundationStereo server URL (default: http://localhost:1234). "
+             "Falls back to hardware depth if unreachable.",
+    )
+    p_viz.add_argument(
+        "--no-foundation-stereo",
+        action="store_true",
+        help="skip FoundationStereo entirely; use hardware depth.",
+    )
     p_viz.set_defaults(func=_cmd_visualize)
 
     p_list = sub.add_parser("list-cameras", help="Print connected RealSense serials")

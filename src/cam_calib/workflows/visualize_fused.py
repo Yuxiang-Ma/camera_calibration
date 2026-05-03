@@ -1,12 +1,9 @@
 """End-to-end fused-scene visualization.
 
-Takes pre-captured ``CameraFrame``s (each with ``.depth`` set), looks up
-saved extrinsics, fuses RGB-D into a world PCD, optionally overlays
-caller-supplied geometries, and shows the result in Rerun (default) with
-Open3D fallback.
-
-Depth source is intentionally outside this package's scope — populate
-``frame.depth`` yourself (hardware depth, FoundationStereo, anything else).
+Takes pre-captured ``CameraFrame``s, looks up saved extrinsics, optionally
+runs FoundationStereo for depth (with hardware-depth fallback), fuses
+RGB-D into a world PCD, optionally overlays caller-supplied geometries,
+and shows the result in Rerun (default) with Open3D fallback.
 """
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple, Union
@@ -15,6 +12,10 @@ import numpy as np
 
 from cam_calib.adapters.base import CameraFrame
 from cam_calib.core.extrinsics_io import load_cam_extrinsics
+from cam_calib.depth.foundation_stereo import (
+    FoundationStereoClient,
+    resolve_depth_for_frame,
+)
 from cam_calib.viz.pointcloud import aggregate_world_pointcloud
 
 
@@ -25,6 +26,7 @@ def fuse_and_show(
     frames: List[CameraFrame],
     extrinsics_dir: PathLike,
     *,
+    fs_client: Optional[FoundationStereoClient] = None,
     extra_pointclouds: Iterable[Tuple[str, np.ndarray]] = (),
     use_rerun: bool = True,
     save_rrd_dir: Optional[PathLike] = None,
@@ -33,11 +35,13 @@ def fuse_and_show(
 ) -> None:
     """Fuse RGB-D from ``frames`` into a world PCD and display it.
 
-    Each frame must have:
-      - ``image`` (BGR uint8)
-      - ``K`` (3x3 intrinsics)
-      - ``depth`` (float32 meters, aligned to color)
-      - a saved ``<serial>.yaml`` in ``extrinsics_dir``
+    Each frame must have ``image``, ``K``, and a saved ``<serial>.yaml`` in
+    ``extrinsics_dir``. Depth comes from one of (in order):
+      1. ``fs_client.infer_color_aligned_depth(frame)`` if both ``fs_client``
+         and ``frame.stereo_ir`` are present
+      2. ``frame.depth`` (hardware/pre-computed)
+
+    Per-frame failures of (1) emit a warning and fall back to (2).
     """
     if not frames:
         raise ValueError("no frames provided")
@@ -50,14 +54,10 @@ def fuse_and_show(
                 f"no extrinsics yaml for {f.serial} in {extrinsics_dir}; "
                 f"run `cam-calib calibrate` first"
             )
-        if f.depth is None:
-            raise ValueError(
-                f"frame for {f.serial} has no depth — adapters need "
-                f"enable_depth=True"
-            )
+        depth = resolve_depth_for_frame(f, fs_client)
         serials.append(f.serial)
         colors_rgb.append(f.image[..., ::-1])  # BGR → RGB for viz
-        depths.append(f.depth)
+        depths.append(depth)
         Ks.append(f.K)
         extr.append(T_cam_world)
 
