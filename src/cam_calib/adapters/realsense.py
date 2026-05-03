@@ -83,6 +83,9 @@ class SimpleRealSense:
         self._baseline: Optional[float] = None
         self._T_color_from_ir: Optional[np.ndarray] = None
 
+        # Color sensor handle — captured in start() for runtime control
+        self._color_sensor = None
+
     @staticmethod
     def list_connected_serials() -> List[str]:
         ctx = rs.context()
@@ -130,6 +133,7 @@ class SimpleRealSense:
 
         self._pipeline = rs.pipeline()
         profile = self._pipeline.start(cfg)
+        self._color_sensor = profile.get_device().first_color_sensor()
 
         color_stream = profile.get_stream(rs.stream.color).as_video_stream_profile()
         intr = color_stream.get_intrinsics()
@@ -200,3 +204,50 @@ class SimpleRealSense:
             depth=depth_arr,
             stereo_ir=stereo_ir,
         )
+
+    # ----- runtime sensor controls (used by exposure auto-tuning) -----
+
+    def _require_color_sensor(self):
+        if self._color_sensor is None:
+            raise RuntimeError("camera not started; call .start() first")
+        return self._color_sensor
+
+    def set_exposure(
+        self,
+        exposure_us: Optional[float] = None,
+        gain: Optional[float] = None,
+    ) -> None:
+        """Set color exposure (microseconds) and gain.
+
+        Pass ``None`` for both to re-enable auto-exposure. Setting either
+        disables auto-exposure.
+        """
+        sensor = self._require_color_sensor()
+        if exposure_us is None and gain is None:
+            sensor.set_option(rs.option.enable_auto_exposure, 1)
+            return
+        sensor.set_option(rs.option.enable_auto_exposure, 0)
+        if exposure_us is not None:
+            sensor.set_option(rs.option.exposure, float(exposure_us))
+        if gain is not None:
+            sensor.set_option(rs.option.gain, float(gain))
+
+    def get_exposure(self) -> float:
+        return float(self._require_color_sensor().get_option(rs.option.exposure))
+
+    def get_gain(self) -> float:
+        return float(self._require_color_sensor().get_option(rs.option.gain))
+
+    def set_auto_exposure(self, enabled: bool) -> None:
+        self._require_color_sensor().set_option(
+            rs.option.enable_auto_exposure, 1 if enabled else 0
+        )
+
+    def set_white_balance(self, kelvin: Optional[float] = None) -> None:
+        """Set color white balance in Kelvin. ``None`` re-enables auto-WB."""
+        sensor = self._require_color_sensor()
+        if kelvin is None:
+            sensor.set_option(rs.option.enable_auto_white_balance, 1)
+            return
+        sensor.set_option(rs.option.enable_auto_white_balance, 0)
+        sensor.set_option(rs.option.white_balance, float(kelvin))

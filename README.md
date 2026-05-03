@@ -88,6 +88,31 @@ python -m cam_calib calibrate --cameras 138422070384,134322071848
 python -m cam_calib visualize
 ```
 
+### Per-camera exposure auto-tuning (calibrate)
+
+By default, `calibrate` runs a short feedback loop on each camera before the
+calibration loop starts: capture → detect ChArUco → measure mean luminance
+inside the board's bounding box → adjust exposure proportionally → repeat
+until the target luminance is hit.
+
+This gets around RealSense's per-camera auto-exposure converging to
+different values on different fields of view. Each camera ends up at its
+own exposure value, but the **detected board** has the same brightness
+across all cameras — the right invariant for ChArUco corner accuracy.
+
+```bash
+# Default: tune each camera to mean board luminance ~120
+python -m cam_calib calibrate
+
+# Custom target / iteration cap
+python -m cam_calib calibrate --exposure-target 130 --exposure-max-iters 12
+
+# Skip tuning (use stock RealSense auto-exposure)
+python -m cam_calib calibrate --no-auto-tune-exposure
+```
+
+Typical convergence is 4–6 iterations and a couple of seconds per camera.
+
 ### FoundationStereo for visualize depth
 
 `visualize` will try the [FoundationStereo](https://github.com/williamshen-nz/FoundationStereo)

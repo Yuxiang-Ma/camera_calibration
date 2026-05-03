@@ -28,6 +28,7 @@ def _resolve_serials(args_cameras):
 
 def _cmd_calibrate(args: argparse.Namespace) -> int:
     from cam_calib.adapters.realsense import SimpleRealSense
+    from cam_calib.workflows.auto_exposure import auto_tune_charuco_exposure
     from cam_calib.workflows.calibrate_extrinsics import run_calibration_loop
 
     serials = _resolve_serials(args.cameras)
@@ -43,6 +44,19 @@ def _cmd_calibrate(args: argparse.Namespace) -> int:
             cam = SimpleRealSense(s, resolution=args.resolution, fps=args.fps)
             cam.start()
             cams.append(cam)
+
+        if not args.no_auto_tune_exposure:
+            print(
+                f"auto-tuning exposure (target board luminance "
+                f"{args.exposure_target}) for {len(cams)} cameras…"
+            )
+            for cam in cams:
+                auto_tune_charuco_exposure(
+                    cam,
+                    target_mean=args.exposure_target,
+                    max_iters=args.exposure_max_iters,
+                )
+
         run_calibration_loop(cams, extrinsics_dir, visualize=not args.no_visualize)
     finally:
         for cam in cams:
@@ -153,6 +167,25 @@ def main(argv=None) -> int:
                        help="capture resolution WxH (default 1280x720)")
     p_cal.add_argument("--fps", type=int, default=30)
     p_cal.add_argument("--no-visualize", action="store_true")
+    p_cal.add_argument(
+        "--no-auto-tune-exposure",
+        action="store_true",
+        help="skip per-camera exposure tuning (default: tune so detected "
+             "ChArUco region has consistent brightness across cameras)",
+    )
+    p_cal.add_argument(
+        "--exposure-target",
+        type=float,
+        default=120.0,
+        help="target mean grayscale luminance [0–255] in the board ROI "
+             "(default 120)",
+    )
+    p_cal.add_argument(
+        "--exposure-max-iters",
+        type=int,
+        default=8,
+        help="max exposure-adjustment rounds per camera (default 8)",
+    )
     p_cal.set_defaults(func=_cmd_calibrate)
 
     p_viz = sub.add_parser(
