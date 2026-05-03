@@ -154,6 +154,46 @@ only — no robot-control libraries.
 are project-specific. Point `urdf_to_pcd` at whatever URDF tree your project
 already has, e.g. `~/tac_foundation/third_party/tidybot2/models/franka_fer/urdf/robot.urdf`.
 
+## Hand-eye dataset collection
+
+`cam_calib.workflows.handeye_dataset` builds a per-pose dataset of
+`(rgb, depth, qpos, link_transforms_base)` from a multi-camera rig and any
+robot. The package itself stays robot-SDK-free: callers plug in a
+`capture_multi_frame` callable (any backend that returns
+`{serial: CameraFrame}`) and a `RobotPoseSource` (any class with
+`prepare_sample()` + `acquire_sample() -> (qpos, link_FK)`).
+
+```python
+from cam_calib.workflows.handeye_dataset import interactive_capture_session
+
+n_saved = interactive_capture_session(
+    dataset_dir="/data/handeye",
+    serials=["408322072302", "134322071848"],
+    capture_multi_frame=my_multi_camera_grab,    # () -> {serial: CameraFrame}
+    robot_pose_source=my_pose_source,            # implements RobotPoseSource
+    T_cam_world=load_cam_extrinsics_dict(...),
+    T_world_base=load_robot_base_pose(...),
+    image_hw=(720, 1280),
+    fs_client=None,                              # or FoundationStereoClient(...)
+)
+```
+
+A FrankaPy + Klampt + RealSense reference example lives in
+`examples/handeye_with_frankapy.py`. It is reference-only; tac_foundation's
+runnable production version is at
+`tac_foundation/ReKep/scripts/collect_handeye_dataset.py`.
+
+Output layout per pose:
+
+```
+dataset_dir/
+  view_<NNN>_<serial>/
+    T_cb.yaml          # camera-from-base transform: P_cam = T_cb @ P_base
+    T_cam_world.yaml
+    intrinsics.yaml
+    pose_<NNN>/{rgb.png, depth.npy, qpos.npy, link_transforms_base.npz}
+```
+
 ## YAML schemas
 
 ### Camera extrinsics — `<serial>.yaml`
